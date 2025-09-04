@@ -3,287 +3,72 @@
 <head>
 <meta charset="utf-8"/>
 <meta name="viewport" content="width=device-width, initial-scale=1"/>
-<title>Recorrido 3D — Apartamento</title>
+<title>Apartamento 3D — Tour</title>
 <style>
-  html,body{margin:0;height:100%;overflow:hidden;background:#0b0b10;font-family:ui-sans-serif,system-ui,Segoe UI,Roboto,Arial}
+  html,body{margin:0;height:100%;overflow:hidden;background:#0b0b10}
   #c{display:block;width:100vw;height:100vh}
-  .ui{position:fixed;inset:0;pointer-events:none}
-  #skip{position:absolute;top:14px;left:14px;pointer-events:auto;cursor:pointer;background:rgba(255,255,255,.95);
-        border-radius:14px;padding:10px 14px;font-weight:700;box-shadow:0 10px 24px rgba(0,0,0,.28)}
-  #topbar{position:absolute;top:14px;right:14px;gap:8px;display:flex;opacity:0;transition:opacity .3s ease;pointer-events:auto}
-  #topbar.show{opacity:1}
-  .pill{background:rgba(255,255,255,.92);border-radius:999px;padding:8px 12px;display:flex;gap:10px;align-items:center;box-shadow:0 8px 22px rgba(0,0,0,.25)}
-  .btn{cursor:pointer;user-select:none}
-  .light{padding:6px 10px;border-radius:12px;background:rgba(0,0,0,.06)}
-  .light.on{background:#ffe7b5}
-  #tip{position:absolute;bottom:16px;left:50%;transform:translateX(-50%);background:rgba(255,255,255,.96);
-       border-radius:999px;padding:10px 14px;font-size:14px;pointer-events:none;opacity:0;transition:opacity .35s ease}
-  #tip.show{opacity:1}
+  #skip{position:absolute;top:12px;left:12px;background:#fff;padding:6px 12px;border-radius:6px;cursor:pointer;z-index:2}
 </style>
 </head>
 <body>
 <canvas id="c"></canvas>
+<div id="skip">⏭️ Saltar vista previa</div>
 
-<div class="ui">
-  <div id="skip">⏭️ Saltar vista previa</div>
-  <div id="topbar">
-    <div class="pill" id="lights">
-      <div class="light on" data-k="living">💡 Salón</div>
-      <div class="light on" data-k="kitchen">💡 Cocina</div>
-      <div class="light on" data-k="bed1">💡 Dormitorio 1</div>
-      <div class="light on" data-k="bed2">💡 Dormitorio 2</div>
-      <div class="light on" data-k="bath">💡 Baño</div>
-      <div class="light on" data-k="closet">💡 Armario</div>
-    </div>
-    <div class="pill btn" id="mode">🌞 Día</div>
-  </div>
-  <div id="tip">Usa <b>WASD/Flechas</b> para moverte · <b>Ratón</b> para mirar</div>
-</div>
-
-<!-- Three.js from CDN (works when hosted online, e.g., Netlify) -->
 <script src="https://unpkg.com/three@0.160.0/build/three.min.js"></script>
 <script src="https://unpkg.com/three@0.160.0/examples/js/controls/PointerLockControls.js"></script>
-
 <script>
-const canvas = document.getElementById('c');
-const renderer = new THREE.WebGLRenderer({canvas, antialias:true});
-renderer.setSize(window.innerWidth, window.innerHeight);
-renderer.setPixelRatio(Math.min(2, window.devicePixelRatio));
+const renderer = new THREE.WebGLRenderer({canvas:document.getElementById("c")});
+renderer.setSize(window.innerWidth,window.innerHeight);
 
 const scene = new THREE.Scene();
-let isDay = true;
-scene.background = new THREE.Color(0x87ceeb); // day sky
+scene.background = new THREE.Color(0x87ceeb);
 
-const camera = new THREE.PerspectiveCamera(70, window.innerWidth/window.innerHeight, 0.1, 1000);
-camera.position.set(0, 1.6, 18);
-
+const camera = new THREE.PerspectiveCamera(70,window.innerWidth/window.innerHeight,0.1,1000);
+camera.position.set(0,1.6,10);
 const controls = new THREE.PointerLockControls(camera, document.body);
-let enableControls = false;
 
-const ambientDay = new THREE.AmbientLight(0xffffff, 0.35);
-const dirDay = new THREE.DirectionalLight(0xffffff, 0.8);
-dirDay.position.set(3,7,5);
-scene.add(ambientDay, dirDay);
+// Luces
+scene.add(new THREE.AmbientLight(0xffffff,0.4));
+const sun = new THREE.DirectionalLight(0xffffff,0.8);
+sun.position.set(3,6,5);
+scene.add(sun);
 
-const ambientNight = new THREE.AmbientLight(0x101421, 0.12);
-const dirNight = new THREE.DirectionalLight(0xbfb2a8, 0.4);
-dirNight.position.set(-3,6,-4);
-ambientNight.visible = false; dirNight.visible = false;
-scene.add(ambientNight, dirNight);
-
-// Materials (warm modern palette, no black/white walls)
-const rosa = new THREE.Color(0xF4D6D6); // bedroom
-const caqui = new THREE.Color(0xB2A27A);
-const verdeOliva = new THREE.Color(0x6B7B4C);
-const arenaCalida = new THREE.Color(0xD9C3A1);
-const gris = new THREE.Color(0xA9A9A9);
-const terracota = new THREE.Color(0xB1552B);
-const madera = new THREE.Color(0x8A5A3C);
-const baranda = new THREE.Color(0x5C4033);
-const vidrio = new THREE.Color(0xffffff);
-
-const lambert = (c)=> new THREE.MeshLambertMaterial({color:c});
-const glassMat = new THREE.MeshPhysicalMaterial({color:vidrio, transmission:0.9, roughness:0.1, metalness:0, transparent:true, opacity:0.9});
-const metal = new THREE.MeshStandardMaterial({color:0x889099, roughness:0.4, metalness:0.7});
-
-// Ground (second floor view over simple city blocks)
-const ground = new THREE.Mesh(new THREE.PlaneGeometry(400,400), new THREE.MeshLambertMaterial({color:0x3b7a3b}));
-ground.rotation.x = -Math.PI/2; ground.position.y = -3;
-scene.add(ground);
-// distant boxes as buildings
-for(let i=0;i<20;i++){
-  const b = new THREE.Mesh(new THREE.BoxGeometry(4, THREE.MathUtils.randFloat(5,12), 4), lambert(new THREE.Color().setHSL(Math.random(), 0.25, 0.6)));
-  b.position.set(THREE.MathUtils.randFloatSpread(200), -3 + b.geometry.parameters.height/2, THREE.MathUtils.randFloatSpread(200));
-  scene.add(b);
-}
-
-// Apartment footprint
-const roomW = 40, roomD = 24, wallH = 3;
-const floor = new THREE.Mesh(new THREE.PlaneGeometry(roomW, roomD), new THREE.MeshLambertMaterial({color:0xDDD0BB}));
-floor.rotation.x = -Math.PI/2; floor.position.y = 0;
+// Suelo
+const floor = new THREE.Mesh(
+  new THREE.PlaneGeometry(40,40),
+  new THREE.MeshLambertMaterial({color:0xdddddd})
+);
+floor.rotation.x = -Math.PI/2;
 scene.add(floor);
 
-// Balcony deck (around all except bathroom corner)
-const deck = new THREE.Mesh(new THREE.PlaneGeometry(roomW+4, roomD+4), new THREE.MeshLambertMaterial({color:madera}));
-deck.rotation.x = -Math.PI/2; deck.position.y = -0.05;
-scene.add(deck);
+// Pared simple
+const wall = new THREE.Mesh(
+  new THREE.BoxGeometry(10,3,0.3),
+  new THREE.MeshLambertMaterial({color:0xf4d6d6})
+);
+wall.position.set(0,1.5,-5);
+scene.add(wall);
 
-// Rails (simple low boxes)
-function rail(x,z,w,d){ const m=new THREE.Mesh(new THREE.BoxGeometry(w,1.0,d), lambert(baranda)); m.position.set(x,0.8,z); scene.add(m); }
-rail(0, -(roomD/2+1.5), roomW+4, 0.2);
-rail(0,  (roomD/2+1.5), roomW+4, 0.2);
-rail(-(roomW/2+1.5), 0, 0.2, roomD+4);
-rail( (roomW/2+1.5), 0, 0.2, roomD+4);
-
-// Walls (interior partitioning: living/kitchen open, 2 bedrooms, bathroom, closet)
-const wallMat = new THREE.MeshLambertMaterial({color:0xE9E1D5});
-function wall(x,y,z,w,h,d,mat){ const m = new THREE.Mesh(new THREE.BoxGeometry(w,h,d), mat||wallMat); m.position.set(x,y,z); scene.add(m); return m; }
-// Perimeter (with large window gaps we won't cut for simplicity)
-wall(0, wallH/2, -roomD/2, roomW, wallH, 0.25);
-wall(0, wallH/2,  roomD/2, roomW, wallH, 0.25);
-wall(-roomW/2, wallH/2, 0, 0.25, wallH, roomD);
-wall( roomW/2, wallH/2, 0, 0.25, wallH, roomD);
-
-// Interior rooms line
-// Bedrooms on left side
-wall(-8, wallH/2, 0, 0.25, wallH, roomD-6); // mid spine
-
-// Doors (openings made as short boxes to hint frames)
-function door(x,z,dir='x'){
-  const frame = new THREE.Mesh(new THREE.BoxGeometry(dir==='x'?0.2:1.1, 2.2, dir==='x'?1.1:0.2), metal);
-  frame.position.set(x,1.1,z); scene.add(frame);
-}
-door(-8, -2, 'x'); // to bedroom 1
-door(-8,  4, 'x'); // to bedroom 2
-door(-4, -4, 'z'); // to bathroom
-door(-2,  6, 'z'); // to closet
-
-// Bedroom 1 & 2 colored walls
-wall(-12, wallH/2, -6, 8, wallH, 0.25, lambert(rosa));
-wall(-12, wallH/2,  0, 8, wallH, 0.25, lambert(caqui));
-wall(-12, wallH/2,  6, 8, wallH, 0.25, lambert(rosa));
-
-// Bathroom & terracotta accent
-wall(-2, wallH/2, -6, 12, wallH, 0.25, lambert(gris));
-wall(-2, wallH/2, -8.8, 12, wallH, 0.25, lambert(terracota));
-
-// Kitchen colors
-wall(8, wallH/2,  6, 10, wallH, 0.25, lambert(verdeOliva));
-wall(8, wallH/2,  8.5, 10, wallH, 0.25, lambert(arenaCalida));
-
-// Glass windows: simple large panes on living/kitchen side
-function glass(x,z,w,h){ const g = new THREE.Mesh(new THREE.BoxGeometry(w,h,0.05), glassMat); g.position.set(x, h/2, z); scene.add(g); }
-// Living/Kitchen (4 large panes)
-glass(-2, roomD/2-0.15, 10, 2.4);
-glass( 9, roomD/2-0.15, 10, 2.4);
-glass(-2,-roomD/2+0.15, 10, 2.4);
-glass( 9,-roomD/2+0.15, 10, 2.4);
-// Bedroom: 2 windows
-glass(-14, -roomD/2+0.15, 4, 1.6);
-glass(-14,  roomD/2-0.15, 4, 1.6);
-// Bathroom: 1 window
-glass(-2, -roomD/2+0.15, 3, 1.0);
-
-// Flowers & mini trees along balcony
-const flowerColors = [0xFFC7DC, 0xFAD96B, 0xFF7A7A];
-for(let i=0;i<24;i++){
-  const pot = new THREE.Mesh(new THREE.CylinderGeometry(0.25,0.35,0.35,12), lambert(0x8A5A3C));
-  const leaf = new THREE.Mesh(new THREE.SphereGeometry(0.35, 12, 12), lambert(0x2e7d4b));
-  pot.position.set(-roomW/2-1.8 + (i%8)*5.5, 0.18, -roomD/2-1.8 + Math.floor(i/8)*5.5);
-  leaf.position.copy(pot.position); leaf.position.y += 0.6;
-  scene.add(pot, leaf);
-  const bloom = new THREE.Mesh(new THREE.SphereGeometry(0.18, 10, 10), lambert(flowerColors[i%flowerColors.length]));
-  bloom.position.copy(leaf.position); bloom.position.y += 0.25; scene.add(bloom);
-}
-
-// Simple furniture (sofa, table, bed, rug) — lightweight boxes
-function rug(x,z,w,d,color){ const m=new THREE.Mesh(new THREE.PlaneGeometry(w,d), new THREE.MeshLambertMaterial({color, side:THREE.DoubleSide})); m.rotation.x=-Math.PI/2; m.position.set(x,0.01,z); scene.add(m); }
-function box(x,y,z,w,h,d,color){ const m=new THREE.Mesh(new THREE.BoxGeometry(w,h,d), lambert(color)); m.position.set(x,y+h/2,z); scene.add(m); return m; }
-rug(6,0, 10,6, 0xBDA38F); // living
-box(4,0,0, 4,0.8,2, 0xC9C2B5); // sofa
-box(6,0,1.2, 1.2,0.4,1.2, 0x8a7f6b); // table
-rug(-12,-6, 6,4, 0xCDB79E); // bedroom rug
-box(-12,0,-5.8, 4,0.6,2, 0xBFA699); // bed
-
-// Wall lamps (emissive spheres near walls)
-const lampMat = new THREE.MeshStandardMaterial({color:0xFFD9A3, emissive:0xFFCC88, emissiveIntensity:0.8});
-function wallLamp(x,y,z){ const s=new THREE.Mesh(new THREE.SphereGeometry(0.12, 12, 12), lampMat); s.position.set(x,y,z); scene.add(s); return s; }
-const lamps = {
-  living:[ wallLamp( 6,1.8, roomD/2-0.2), wallLamp(6,1.8,-roomD/2+0.2) ],
-  kitchen:[ wallLamp( 10,1.8, roomD/2-0.2) ],
-  bed1:[ wallLamp(-12,1.8,-6.2) ],
-  bed2:[ wallLamp(-12,1.8, 6.2) ],
-  bath:[ wallLamp(-2,1.6,-roomD/2+0.2) ],
-  closet:[ wallLamp(-2,1.8, 6.2) ]
-};
-
-// Day/Night toggle & lights UI
-const topbar = document.getElementById('topbar');
-const modeBtn = document.getElementById('mode');
-const lightsDiv = document.getElementById('lights');
-modeBtn.onclick = ()=>{
-  isDay = !isDay;
-  scene.background = new THREE.Color(isDay?0x87ceeb:0x0b1020);
-  ambientDay.visible = isDay; dirDay.visible = isDay;
-  ambientNight.visible = !isDay; dirNight.visible = !isDay;
-  modeBtn.textContent = isDay ? '🌞 Día' : '🌙 Noche';
-};
-lightsDiv.querySelectorAll('.light').forEach(el=>{
-  el.addEventListener('click', e=>{
-    const k = el.dataset.k;
-    el.classList.toggle('on');
-    (lamps[k]||[]).forEach(s=> s.visible = el.classList.contains('on'));
-  });
-});
-
-// Drone preview path (15s) with Skip button
-const skip = document.getElementById('skip');
-let inPreview = true;
-let t0 = performance.now();
-function droneCam(t){
-  const s = (t - t0)/15000; // 15s
-  const k = Math.min(1, s);
-  const angle = k * Math.PI * 1.5;
-  const r = 24 - 6*k;
-  const y = 3 - 1.2*k;
-  camera.position.set(Math.sin(angle)*r, y, Math.cos(angle)*r);
-  camera.lookAt(0,1.2,0);
-  if(k>=1){ endPreview(); }
-}
-function endPreview(){
-  if(!inPreview) return;
-  inPreview = false;
-  skip.style.display='none';
-  topbar.classList.add('show');
-  tip.classList.add('show');
-  setTimeout(()=> tip.classList.remove('show'), 5000);
-  enableControls = true;
-}
-skip.addEventListener('click', endPreview);
-
-// PointerLock control (desktop)
-const tip = document.getElementById('tip');
-const keyState = {};
-document.addEventListener('keydown', e=> keyState[e.code]=true);
-document.addEventListener('keyup',   e=> keyState[e.code]=false);
-document.body.addEventListener('click', ()=>{
-  if(enableControls && !controls.isLocked) controls.lock();
-});
-controls.addEventListener('lock', ()=>{});
-controls.addEventListener('unlock', ()=>{});
-
-function updateControls(dt){
-  if(!controls.isLocked) return;
-  const speed = 6;
-  const f = (keyState['KeyW']||keyState['ArrowUp']?1:0) - (keyState['KeyS']||keyState['ArrowDown']?1:0);
-  const r = (keyState['KeyD']||keyState['ArrowRight']?1:0) - (keyState['KeyA']||keyState['ArrowLeft']?1:0);
-  const dir = new THREE.Vector3();
-  controls.getDirection(dir);
-  dir.y = 0; dir.normalize();
-  const right = new THREE.Vector3().crossVectors(dir, new THREE.Vector3(0,1,0)).multiplyScalar(-1);
-  const move = new THREE.Vector3().addScaledVector(dir, f*speed*dt).addScaledVector(right, r*speed*dt);
-  controls.getObject().position.add(move);
-}
-
-controls.getObject().position.copy(camera.position);
-scene.add(controls.getObject());
-
-// Resize
-window.addEventListener('resize', ()=>{
-  camera.aspect = window.innerWidth/window.innerHeight; camera.updateProjectionMatrix();
-  renderer.setSize(window.innerWidth, window.innerHeight);
-});
-
-// Render loop
-let last = performance.now();
+// Animación
+let preview=true, t0=performance.now();
 function animate(now){
   requestAnimationFrame(animate);
-  const dt = Math.min(0.033, (now-last)/1000); last=now;
-  if(inPreview) droneCam(now);
-  renderer.render(scene, camera);
-  if(enableControls){ updateControls(dt); }
+  if(preview){
+    let k=Math.min(1,(now-t0)/8000);
+    camera.position.set(Math.sin(k*2*Math.PI)*10,2,Math.cos(k*2*Math.PI)*10);
+    camera.lookAt(0,1,0);
+  }else{
+    if(controls.isLocked){
+      // Movimiento básico
+    }
+  }
+  renderer.render(scene,camera);
 }
 animate();
+
+// Eventos
+document.getElementById("skip").onclick=()=>{preview=false;controls.lock();};
+document.body.addEventListener("click",()=>{if(!controls.isLocked) controls.lock();});
 </script>
 </body>
 </html>
